@@ -17,6 +17,8 @@
     "docs/LICENSE*"
   ],
   "scripts": {
+    "dev": "python3 -m http.server 8080",
+    "start:desktop": "./scripts/start_desktop.sh",
     "lint": "eslint app core po/po2js po/xgettext-html tests utils",
     "test": "karma start karma.conf.js",
     "prepublish": "node ./utils/convert.js --clean"
