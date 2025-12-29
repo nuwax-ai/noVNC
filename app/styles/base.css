@@ -948,6 +948,7 @@ html {
 
 /* Main container */
 #noVNC_container {
+    position: relative;
     width: 100%;
     height: 100%;
     background-color: #ffffff;
@@ -964,6 +965,27 @@ html {
     -webkit-user-select: none;
 }
 
+/* Background image with opacity */
+#noVNC_container::before {
+    content: "";
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    width: calc(100% + 40px);
+    height: calc(100% + 40px);
+    background-image: url("../images/bg.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.6;
+    filter: blur(8px);
+    -webkit-filter: blur(8px);
+    z-index: 0;
+    pointer-events: none;
+    transform: scale(1.5);
+    -webkit-transform: scale(1.5);
+}
+
 /* Background placeholder - shows before VNC connection */
 #noVNC_background_placeholder {
     position: absolute;
@@ -971,7 +993,7 @@ html {
     left: 50%;
     transform: translate(-50%, -50%);
     width: 100%;
-    aspect-ratio: 1280 / 800;
+    aspect-ratio: 1920 / 1080;
     background-image: url("../images/bg.jpg");
     background-size: 100% 100%;
     background-position: center;
