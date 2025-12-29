@@ -349,6 +349,19 @@ export default class Websock {
             return;
         }
 
+        // Handle binary "Share expired" message
+        if (typeof e.data !== 'string') {
+            const tempU8 = new Uint8Array(e.data);
+            if (tempU8.length === 13) {
+                const str = String.fromCharCode.apply(null, tempU8);
+                if (str === 'Share expired') {
+                    Log.Warn("Share expired detected (binary)");
+                    this._websocket.close(4000, 'Share expired');
+                    return;
+                }
+            }
+        }
+
         if (this._rQlen == this._rQi) {
             // All data has now been processed, this means we
             // can reset the receive queue.
