@@ -40,7 +40,7 @@ import H264Decoder from "./decoders/h264.js";
 
 // How many seconds to wait for a disconnect to finish
 const DISCONNECT_TIMEOUT = 3;
-const DEFAULT_BACKGROUND = 'rgb(255, 255, 255)';
+const DEFAULT_BACKGROUND = 'transparent';
 
 // Minimum wait (ms) between two mouse moves
 const MOUSE_MOVE_DELAY = 17;
@@ -222,6 +222,7 @@ export default class RFB extends EventTargetMixin {
         this._screen.style.height = '100%';
         this._screen.style.overflow = 'auto';
         this._screen.style.backgroundColor = DEFAULT_BACKGROUND;
+        this._screen.style.zIndex = '1';
         this._canvas = document.createElement('canvas');
         this._canvas.style.margin = 'auto';
         // Some browsers add an outline on focus
