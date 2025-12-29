@@ -63,10 +63,10 @@ export default class Websock {
         this._sQ = null;  // Send queue
 
         this._eventHandlers = {
-            message: () => {},
-            open: () => {},
-            close: () => {},
-            error: () => {}
+            message: () => { },
+            open: () => { },
+            close: () => { },
+            error: () => { }
         };
     }
 
@@ -134,7 +134,7 @@ export default class Websock {
         return str;
     }
 
-    rQshiftBytes(len, copy=true) {
+    rQshiftBytes(len, copy = true) {
         this._rQi += len;
         if (copy) {
             return this._rQ.slice(this._rQi - len, this._rQi);
@@ -149,7 +149,7 @@ export default class Websock {
         this._rQi += len;
     }
 
-    rQpeekBytes(len, copy=true) {
+    rQpeekBytes(len, copy = true) {
         if (copy) {
             return this._rQ.slice(this._rQi, this._rQi + len);
         } else {
@@ -190,8 +190,8 @@ export default class Websock {
         this._sQensureSpace(4);
         this._sQ[this._sQlen++] = (num >> 24) & 0xff;
         this._sQ[this._sQlen++] = (num >> 16) & 0xff;
-        this._sQ[this._sQlen++] = (num >>  8) & 0xff;
-        this._sQ[this._sQlen++] = (num >>  0) & 0xff;
+        this._sQ[this._sQlen++] = (num >> 8) & 0xff;
+        this._sQ[this._sQlen++] = (num >> 0) & 0xff;
     }
 
     sQpushString(str) {
@@ -200,7 +200,7 @@ export default class Websock {
     }
 
     sQpushBytes(bytes) {
-        for (let offset = 0;offset < bytes.length;) {
+        for (let offset = 0; offset < bytes.length;) {
             this._sQensureSpace(1);
 
             let chunkSize = this._sQbufferSize - this._sQlen;
@@ -229,7 +229,7 @@ export default class Websock {
 
     // Event handlers
     off(evt) {
-        this._eventHandlers[evt] = () => {};
+        this._eventHandlers[evt] = () => { };
     }
 
     on(evt, handler) {
@@ -298,7 +298,7 @@ export default class Websock {
                 this._websocket.close();
             }
 
-            this._websocket.onmessage = () => {};
+            this._websocket.onmessage = () => { };
         }
     }
 
@@ -312,7 +312,7 @@ export default class Websock {
     _expandCompactRQ(minFit) {
         // if we're using less than 1/8th of the buffer even with the incoming bytes, compact in place
         // instead of resizing
-        const requiredBufferSize =  (this._rQlen - this._rQi + minFit) * 8;
+        const requiredBufferSize = (this._rQlen - this._rQi + minFit) * 8;
         const resizeNeeded = this._rQbufferSize < requiredBufferSize;
 
         if (resizeNeeded) {
@@ -343,6 +343,12 @@ export default class Websock {
 
     // push arraybuffer values onto the end of the receive que
     _recvMessage(e) {
+        if (typeof e.data === 'string' && e.data.indexOf('Share expired') !== -1) {
+            Log.Warn("Share expired detected");
+            this._websocket.close(4000, 'Share expired');
+            return;
+        }
+
         if (this._rQlen == this._rQi) {
             // All data has now been processed, this means we
             // can reset the receive queue.

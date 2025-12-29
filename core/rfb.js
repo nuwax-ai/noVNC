@@ -661,6 +661,7 @@ export default class RFB extends EventTargetMixin {
             msg = "(code: " + e.code;
             if (e.reason) {
                 msg += ", reason: " + e.reason;
+                this._disconnectReason = e.reason;
             }
             msg += ")";
         }
@@ -948,8 +949,12 @@ export default class RFB extends EventTargetMixin {
                 this.dispatchEvent(new CustomEvent(
                     "disconnect", {
                     detail:
-                        { clean: this._rfbCleanDisconnect }
+                    {
+                        clean: this._rfbCleanDisconnect,
+                        reason: this._disconnectReason
+                    }
                 }));
+                this._disconnectReason = null;
                 break;
         }
     }
