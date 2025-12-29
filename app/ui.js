@@ -1211,6 +1211,10 @@ const UI = {
     },
 
     disconnectFinished(e) {
+        if (e.detail.reason === 'Share expired') {
+            window.parent.postMessage({ type: 'vnc_share_expired', msg: 'Share expired' }, '*');
+        }
+
         const wasConnected = UI.connected;
 
         // 停止心跳保活
