@@ -1090,6 +1090,8 @@ const UI = {
             Log.Error("Failed to connect to server: " + exc);
             UI.updateVisualState('disconnected');
             UI.showStatus(_("Failed to connect to server: ") + exc, 'error');
+            // 通知父级 iframe 连接失败
+            window.parent.postMessage({ type: 'vnc_connection_failed', msg: 'Failed to connect to server: ' + exc }, '*');
             return;
         }
 
@@ -1162,6 +1164,9 @@ const UI = {
         // UI.showStatus(msg);
         UI.updateVisualState('connected');
 
+        // 通知父级 iframe 连接成功
+        window.parent.postMessage({ type: 'vnc_connected', msg: 'Connected to server' }, '*');
+
         // 启动心跳保活定时器
         UI.startKeepalive();
 
@@ -1233,8 +1238,12 @@ const UI = {
             if (wasConnected) {
                 UI.showStatus(_("Something went wrong, connection is closed"),
                     'error');
+                // 通知父级 iframe 连接断开
+                window.parent.postMessage({ type: 'vnc_connection_closed', msg: 'Something went wrong, connection is closed' }, '*');
             } else {
                 UI.showStatus(_("Failed to connect to server"), 'error');
+                // 通知父级 iframe 连接失败
+                window.parent.postMessage({ type: 'vnc_connection_failed', msg: 'Failed to connect to server' }, '*');
             }
         }
         // If reconnecting is allowed process it now
