@@ -44,7 +44,7 @@ msgstr "必须设置主机"
 
 #: ../app/ui.js:1052
 msgid "Failed to connect to server: "
-msgstr "无法连接到服务器："
+msgstr "无法连接到智能体电脑："
 
 #: ../app/ui.js:1118
 msgid "Connected (encrypted) to "
@@ -60,7 +60,7 @@ msgstr "出了点问题，连接已关闭"
 
 #: ../app/ui.js:1146
 msgid "Failed to connect to server"
-msgstr "无法连接到服务器"
+msgstr "无法连接到智能体电脑"
 
 #: ../app/ui.js:1158
 msgid "Disconnected"
@@ -292,11 +292,11 @@ msgstr "连接"
 
 #: ../vnc.html:276
 msgid "Server identity"
-msgstr "服务器身份"
+msgstr "智能体电脑身份"
 
 #: ../vnc.html:279
 msgid "The server has provided the following identifying information:"
-msgstr "服务器提供了以下识别信息："
+msgstr "智能体电脑提供了以下识别信息："
 
 #: ../vnc.html:283
 msgid "Fingerprint:"
