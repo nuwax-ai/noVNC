@@ -1065,3 +1065,111 @@ html {
         font-size: 90px;
     }
 }
+
+/* ----------------------------------------
+ * Audio Panel (音频面板)
+ * ----------------------------------------
+ */
+
+#noVNC_audio_button.noVNC_audio_active {
+    background-color: var(--novnc-green);
+}
+
+#noVNC_audio {
+    min-width: 180px;
+}
+
+.noVNC_audio_controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.noVNC_audio_controls label {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.noVNC_audio_controls input[type="range"] {
+    flex: 1;
+    min-width: 80px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--novnc-light-grey);
+    border-radius: 2px;
+    outline: none;
+}
+
+.noVNC_audio_controls input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--novnc-green);
+    cursor: pointer;
+}
+
+.noVNC_audio_controls input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--novnc-green);
+    cursor: pointer;
+    border: none;
+}
+
+#noVNC_audio_volume_value {
+    font-size: 12px;
+    min-width: 35px;
+    text-align: right;
+}
+
+.noVNC_audio_status,
+.noVNC_ime_status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--novnc-light-grey);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.noVNC_status_dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--novnc-red);
+}
+
+.noVNC_audio_status.connected .noVNC_status_dot,
+.noVNC_ime_status.connected .noVNC_status_dot {
+    background: var(--novnc-green);
+}
+
+.noVNC_audio_status.connecting .noVNC_status_dot,
+.noVNC_ime_status.connecting .noVNC_status_dot {
+    background: var(--novnc-yellow);
+    animation: noVNC_status_blink 1s ease-in-out infinite;
+}
+
+@keyframes noVNC_status_blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ----------------------------------------
+ * IME Panel (输入法面板)
+ * ----------------------------------------
+ */
+
+#noVNC_ime_button.noVNC_ime_active {
+    background-color: var(--novnc-green);
+}
+
+#noVNC_ime {
+    min-width: 150px;
+}

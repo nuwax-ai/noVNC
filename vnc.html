@@ -48,6 +48,9 @@
     <link rel="preload" as="image" href="app/images/warning.svg">
 
     <script type="module" crossorigin="anonymous" src="app/error-handler.js"></script>
+    
+    <!-- Opus 解码器 (音频功能) -->
+    <script src="app/vendor/opus-decoder.min.js"></script>
 
     <script type="module">
         import UI from "./app/ui.js";
@@ -165,6 +168,41 @@
                         <input type="button" id="noVNC_shutdown_button" value="Shutdown">
                         <input type="button" id="noVNC_reboot_button" value="Reboot">
                         <input type="button" id="noVNC_reset_button" value="Reset">
+                    </div>
+                </div>
+
+                <!-- Audio (音频) -->
+                <input type="image" alt="Audio" src="app/images/audio.svg" id="noVNC_audio_button"
+                    class="noVNC_button noVNC_hidden" title="Audio">
+                <div class="noVNC_vcenter">
+                    <div id="noVNC_audio" class="noVNC_panel">
+                        <div class="noVNC_heading">
+                            <img alt="" src="app/images/audio.svg"> Audio
+                        </div>
+                        <div class="noVNC_audio_controls">
+                            <label for="noVNC_audio_volume">Volume:</label>
+                            <input type="range" id="noVNC_audio_volume" min="0" max="100" value="80">
+                            <span id="noVNC_audio_volume_value">80%</span>
+                        </div>
+                        <div id="noVNC_audio_status" class="noVNC_audio_status">
+                            <span class="noVNC_status_dot"></span>
+                            <span class="noVNC_status_text">Disconnected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IME (输入法) -->
+                <input type="image" alt="IME" src="app/images/ime.svg" id="noVNC_ime_button"
+                    class="noVNC_button noVNC_hidden" title="IME (Input Method)">
+                <div class="noVNC_vcenter">
+                    <div id="noVNC_ime" class="noVNC_panel">
+                        <div class="noVNC_heading">
+                            <img alt="" src="app/images/ime.svg"> IME
+                        </div>
+                        <div id="noVNC_ime_status" class="noVNC_ime_status">
+                            <span class="noVNC_status_dot"></span>
+                            <span class="noVNC_status_text">Disconnected</span>
+                        </div>
                     </div>
                 </div>
 
