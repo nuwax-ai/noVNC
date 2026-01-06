@@ -33,16 +33,24 @@ class IMEManager {
     /**
      * 构建 IME WebSocket URL
      * @param {string} baseUrl - 基础 URL (如 http://127.0.0.1:8088)
-     * @param {string} userId - 用户 ID
      * @param {string} projectId - 项目 ID
+     * @param {string} userId - 用户 ID (可选，调试模式使用)
+     * @param {boolean} debugMode - 是否调试模式
      * @returns {string} WebSocket URL
      */
-    buildWsUrl(baseUrl, userId, projectId) {
+    buildWsUrl(baseUrl, projectId, userId = null, debugMode = false) {
         // 将 http/https 转换为 ws/wss
         const wsUrl = baseUrl
             .replace(/^http/, 'ws')
             .replace(/\/+$/, '');
-        return `${wsUrl}/computer/ime/${userId}/${projectId}/connect`;
+        
+        // 调试模式：包含 user_id
+        // 正式模式：不包含 user_id
+        if (debugMode && userId) {
+            return `${wsUrl}/computer/ime/${userId}/${projectId}/connect`;
+        } else {
+            return `${wsUrl}/computer/ime/${projectId}/connect`;
+        }
     }
     
     /**

@@ -63,6 +63,7 @@ const UI = {
     userId: null,
     projectId: null,
     baseUrl: null,
+    debugMode: false,  // 调试模式（包含 user_id）
 
     async start(options = {}) {
         UI.customSettings = options.settings || {};
@@ -1917,11 +1918,18 @@ const UI = {
     /**
      * 初始化音频和输入法参数
      * 从 URL 参数中获取 user_id, project_id, base_url
+     * 
+     * 正式模式: /computer/audio/{project_id}/ws
+     * 调试模式: /computer/audio/{user_id}/{project_id}/ws (需要 debug=true 或 user_id 参数)
      */
     initAudioIMEParams() {
         // 从 URL 参数获取
         UI.userId = WebUtil.getConfigVar('user_id');
         UI.projectId = WebUtil.getConfigVar('project_id');
+        
+        // 检测调试模式：URL 参数 debug=true 或者明确传递了 user_id
+        const debugParam = WebUtil.getConfigVar('debug');
+        UI.debugMode = (debugParam === 'true' || debugParam === '1') || !!UI.userId;
         
         // 计算基础 URL（从当前页面 URL 推断）
         const currentUrl = new URL(window.location.href);
@@ -1929,15 +1937,32 @@ const UI = {
         const pathMatch = currentUrl.pathname.match(/^(.*?)\/computer\/vnc\//);
         if (pathMatch) {
             UI.baseUrl = `${currentUrl.protocol}//${currentUrl.host}${pathMatch[1] || ''}`;
+            
+            // 从路径中提取 project_id（如果 URL 参数未提供）
+            // 路径格式: /computer/vnc/{user_id}/{project_id}/vnc.html 或 /computer/vnc/{project_id}/vnc.html
+            if (!UI.projectId) {
+                const pathParts = currentUrl.pathname.replace(pathMatch[0], '').split('/');
+                if (pathParts.length >= 2 && pathParts[1]) {
+                    // 调试模式路径: {user_id}/{project_id}/vnc.html
+                    UI.projectId = pathParts[1];
+                    if (!UI.userId) {
+                        UI.userId = pathParts[0];
+                        UI.debugMode = true;
+                    }
+                } else if (pathParts.length >= 1 && pathParts[0]) {
+                    // 正式模式路径: {project_id}/vnc.html
+                    UI.projectId = pathParts[0];
+                }
+            }
         } else {
             // 尝试从 URL 参数获取
             UI.baseUrl = WebUtil.getConfigVar('base_url') || `${currentUrl.protocol}//${currentUrl.host}`;
         }
         
-        Log.Info('[Audio/IME] 参数初始化: userId=' + UI.userId + ', projectId=' + UI.projectId + ', baseUrl=' + UI.baseUrl);
+        Log.Info('[Audio/IME] 参数初始化: projectId=' + UI.projectId + ', userId=' + UI.userId + ', baseUrl=' + UI.baseUrl + ', debugMode=' + UI.debugMode);
         
-        // 如果有必要的参数，显示音频和输入法按钮
-        if (UI.userId && UI.projectId) {
+        // 如果有 project_id，显示音频和输入法按钮
+        if (UI.projectId) {
             document.getElementById('noVNC_audio_button').classList.remove('noVNC_hidden');
             document.getElementById('noVNC_ime_button').classList.remove('noVNC_hidden');
         }
@@ -1947,16 +1972,17 @@ const UI = {
      * 自动启动音频和输入法（VNC 连接成功后调用）
      */
     async autoStartAudioIME() {
-        if (!UI.userId || !UI.projectId || !UI.baseUrl) {
-            Log.Warn('[Audio/IME] 缺少必要参数，无法自动启动');
+        if (!UI.projectId || !UI.baseUrl) {
+            Log.Warn('[Audio/IME] 缺少必要参数 (projectId/baseUrl)，无法自动启动');
             return;
         }
         
-        Log.Info('[Audio/IME] 自动启动音频和输入法...');
+        Log.Info('[Audio/IME] 自动启动音频和输入法... (debugMode=' + UI.debugMode + ')');
         
         // 启动音频
         try {
-            const audioWsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.userId, UI.projectId);
+            const audioWsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+            Log.Info('[Audio] WebSocket URL: ' + audioWsUrl);
             await audioManager.connect(audioWsUrl);
             UI.audioEnabled = true;
             document.getElementById('noVNC_audio_button').classList.add('noVNC_audio_active');
@@ -1966,7 +1992,8 @@ const UI = {
         
         // 启动输入法
         try {
-            const imeWsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.userId, UI.projectId);
+            const imeWsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+            Log.Info('[IME] WebSocket URL: ' + imeWsUrl);
             await imeManager.connect(imeWsUrl);
             UI.imeEnabled = true;
             document.getElementById('noVNC_ime_button').classList.add('noVNC_ime_active');
@@ -2064,11 +2091,11 @@ const UI = {
         if (UI.audioEnabled) {
             audioManager.disconnect();
         } else {
-            if (!UI.userId || !UI.projectId || !UI.baseUrl) {
+            if (!UI.projectId || !UI.baseUrl) {
                 Log.Warn('[Audio] 缺少必要参数');
                 return;
             }
-            const wsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.userId, UI.projectId);
+            const wsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
             await audioManager.connect(wsUrl);
         }
     },
@@ -2133,11 +2160,11 @@ const UI = {
         if (UI.imeEnabled) {
             imeManager.disconnect();
         } else {
-            if (!UI.userId || !UI.projectId || !UI.baseUrl) {
+            if (!UI.projectId || !UI.baseUrl) {
                 Log.Warn('[IME] 缺少必要参数');
                 return;
             }
-            const wsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.userId, UI.projectId);
+            const wsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
             await imeManager.connect(wsUrl);
         }
     },
