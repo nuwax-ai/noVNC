@@ -72,6 +72,9 @@ export default class Display {
         this._audioIconOn.src = 'app/images/audio-on.png';
         this._audioIconOff = new Image();
         this._audioIconOff.src = 'app/images/audio-muted.png';
+
+        // Track if we have received any frame data (pixels)
+        this._hasReceivedData = false;
     }
 
     // ===== PROPERTIES =====
@@ -311,7 +314,7 @@ export default class Display {
     }
 
     _drawSystemBarIcon() {
-        if (this._fbWidth <= 0) return;
+        if (!this._hasReceivedData) return;
 
         const ctx = this._targetCtx;
         const iconSize = 25;
@@ -373,6 +376,8 @@ export default class Display {
             this._setFillColor(color);
             this._drawCtx.fillRect(x, y, width, height);
             this._damage(x, y, width, height);
+
+            this._hasReceivedData = true;
         }
     }
 
@@ -460,6 +465,8 @@ export default class Display {
             let img = new ImageData(data, width, height);
             this._drawCtx.putImageData(img, x, y);
             this._damage(x, y, width, height);
+
+            this._hasReceivedData = true;
         }
     }
 
@@ -473,6 +480,8 @@ export default class Display {
             const [, , sw, sh, dx, dy] = args;
             this._damage(dx, dy, sw, sh);
         }
+
+        this._hasReceivedData = true;
     }
 
     autoscale(containerWidth, containerHeight) {
