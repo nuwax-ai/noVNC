@@ -1086,6 +1086,26 @@ html {
     margin-bottom: 10px;
 }
 
+.noVNC_audio_toggle_btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: var(--novnc-blue);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.noVNC_audio_toggle_btn:hover {
+    background: var(--novnc-darkblue);
+}
+
+.noVNC_audio_toggle_btn.active {
+    background: var(--novnc-green);
+}
+
 .noVNC_audio_controls label {
     font-size: 12px;
     white-space: nowrap;

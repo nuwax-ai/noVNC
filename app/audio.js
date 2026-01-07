@@ -18,28 +18,28 @@ class AudioManager {
         // WebSocket 连接
         this.ws = null;
         this.connected = false;
-        
+
         // Web Audio API 组件
         this.audioContext = null;
         this.gainNode = null;
         this.decoder = null;
-        
+
         // 播放调度
         this.nextPlayTime = 0;
-        
+
         // 配置
         this.volume = 0.8;  // 默认音量 80%
         this.sampleRate = 48000;
         this.channels = 2;
-        
+
         // 回调函数
         this.onStatusChange = null;
-        
+
         // OpusDecoder 加载状态
         this.opusDecoderReady = false;
         this._checkOpusDecoder();
     }
-    
+
     /**
      * 检查 OpusDecoder 是否已加载
      * @private
@@ -56,7 +56,7 @@ class AudioManager {
             this.opusDecoderReady = false;
         }
     }
-    
+
     /**
      * 构建音频 WebSocket URL
      * @param {string} baseUrl - 基础 URL (如 http://127.0.0.1:8088)
@@ -70,16 +70,16 @@ class AudioManager {
         const wsUrl = baseUrl
             .replace(/^http/, 'ws')
             .replace(/\/+$/, '');
-        
+
         // 调试模式：包含 user_id
         // 正式模式：不包含 user_id
         if (debugMode && userId) {
-            return `${wsUrl}/computer/audio/${userId}/${projectId}/ws`;
+            return `ws://192.168.1.34:8088/computer/audio/${userId}/${projectId}/ws`;
         } else {
             return `${wsUrl}/computer/audio/${projectId}/ws`;
         }
     }
-    
+
     /**
      * 连接音频流
      * @param {string} wsUrl - WebSocket URL
@@ -90,7 +90,7 @@ class AudioManager {
             Log.Warn('[Audio] 已经连接，请先断开');
             return;
         }
-        
+
         // 检查 OpusDecoder
         if (!this.opusDecoderReady) {
             this._checkOpusDecoder();
@@ -100,24 +100,24 @@ class AudioManager {
                 return;
             }
         }
-        
+
         try {
             this._updateStatus('connecting', '音频连接中...');
             Log.Info('[Audio] 连接音频流: ' + wsUrl);
-            
+
             // 初始化 Web Audio API
             await this._initAudioContext();
-            
+
             // 连接 WebSocket
             this.ws = new WebSocket(wsUrl);
             this.ws.binaryType = 'arraybuffer';
-            
+
             this.ws.onopen = () => {
                 Log.Info('[Audio] WebSocket 已连接');
                 this.connected = true;
                 this._updateStatus('connected', '音频已连接');
             };
-            
+
             this.ws.onmessage = async (event) => {
                 try {
                     const data = new Uint8Array(event.data);
@@ -130,26 +130,26 @@ class AudioManager {
                     Log.Error('[Audio] 处理音频数据失败: ' + err);
                 }
             };
-            
+
             this.ws.onerror = (err) => {
                 Log.Error('[Audio] WebSocket 错误: ' + err);
                 this._updateStatus('error', '音频连接错误');
             };
-            
+
             this.ws.onclose = () => {
                 Log.Info('[Audio] WebSocket 已关闭');
                 this.connected = false;
                 this._updateStatus('disconnected', '音频已断开');
                 this._cleanup();
             };
-            
+
         } catch (err) {
             Log.Error('[Audio] 连接失败: ' + err);
             this._updateStatus('error', '音频启动失败');
             throw err;
         }
     }
-    
+
     /**
      * 断开音频流
      */
@@ -163,7 +163,7 @@ class AudioManager {
         this._updateStatus('disconnected', '音频已停止');
         Log.Info('[Audio] 音频流已断开');
     }
-    
+
     /**
      * 设置音量
      * @param {number} volume - 音量值 (0-1)
@@ -175,7 +175,7 @@ class AudioManager {
         }
         Log.Debug('[Audio] 音量设置为: ' + Math.round(this.volume * 100) + '%');
     }
-    
+
     /**
      * 获取当前音量
      * @returns {number} 音量值 (0-1)
@@ -183,7 +183,7 @@ class AudioManager {
     getVolume() {
         return this.volume;
     }
-    
+
     /**
      * 初始化 Web Audio API
      * @private
@@ -194,20 +194,40 @@ class AudioManager {
                 sampleRate: this.sampleRate,
                 latencyHint: 'interactive'
             });
-            
+
             this.gainNode = this.audioContext.createGain();
             this.gainNode.gain.value = this.volume;
             this.gainNode.connect(this.audioContext.destination);
-            
+
             this.nextPlayTime = this.audioContext.currentTime + 0.1;
         }
-        
+
         // 恢复 AudioContext（浏览器安全策略）
         if (this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
+            try {
+                await this.audioContext.resume();
+                Log.Info('[Audio] AudioContext 已恢复');
+            } catch (e) {
+                Log.Warn('[Audio] AudioContext 自动恢复失败，等待用户交互: ' + e);
+            }
         }
     }
-    
+
+    /**
+     * 尝试恢复 AudioContext
+     */
+    async resume() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            try {
+                await this.audioContext.resume();
+                Log.Info('[Audio] AudioContext 已恢复');
+            } catch (e) {
+                Log.Error('[Audio] 恢复失败: ' + e);
+            }
+        }
+    }
+
+
     /**
      * 播放音频数据块
      * @param {Uint8Array} opusData - Opus 编码的音频数据
@@ -225,46 +245,46 @@ class AudioManager {
                 await this.decoder.ready;
                 Log.Debug('[Audio] OpusDecoder 初始化完成');
             }
-            
+
             // 解码 Opus 数据
             const decoded = this.decoder.decodeFrame(opusData);
             const channels = decoded.channelData;
             const samplesDecoded = decoded.samplesDecoded;
-            
+
             if (!channels || channels.length < 2) {
                 Log.Warn('[Audio] 输出声道数据无效');
                 return;
             }
-            
+
             const leftChannelData = channels[0];
             const rightChannelData = channels[1];
-            
+
             // 创建 AudioBuffer
             const audioBuffer = this.audioContext.createBuffer(
                 2, samplesDecoded, this.sampleRate
             );
-            
+
             // 填充声道数据
             audioBuffer.getChannelData(0).set(leftChannelData);
             audioBuffer.getChannelData(1).set(rightChannelData);
-            
+
             // 调度播放
             const source = this.audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(this.gainNode);
-            
+
             // 计算播放时间
             const currentTime = this.audioContext.currentTime;
             if (this.nextPlayTime < currentTime) {
                 this.nextPlayTime = currentTime + 0.05;  // 50ms 缓冲
             }
-            
+
             source.start(this.nextPlayTime);
-            
+
             // 计算下一个播放时间点
             const duration = samplesDecoded / this.sampleRate;
             this.nextPlayTime += duration;
-            
+
         } catch (err) {
             Log.Error('[Audio] 解码或播放失败: ' + err);
             // 解码失败时重置解码器
@@ -278,7 +298,7 @@ class AudioManager {
             }
         }
     }
-    
+
     /**
      * 清理资源
      * @private
@@ -286,7 +306,7 @@ class AudioManager {
     _cleanup() {
         // 重置播放调度
         this.nextPlayTime = 0;
-        
+
         // 释放解码器
         if (this.decoder) {
             try {
@@ -297,7 +317,7 @@ class AudioManager {
             this.decoder = null;
         }
     }
-    
+
     /**
      * 更新状态并触发回调
      * @param {string} status - 状态 (connecting/connected/disconnected/error)
@@ -309,7 +329,7 @@ class AudioManager {
             this.onStatusChange(status, message);
         }
     }
-    
+
     /**
      * 销毁音频管理器
      */

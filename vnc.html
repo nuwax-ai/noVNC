@@ -48,7 +48,7 @@
     <link rel="preload" as="image" href="app/images/warning.svg">
 
     <script type="module" crossorigin="anonymous" src="app/error-handler.js"></script>
-    
+
     <!-- Opus 解码器 (音频功能) -->
     <script src="app/vendor/opus-decoder.min.js"></script>
 
@@ -180,13 +180,16 @@
                             <img alt="" src="app/images/audio.svg"> Audio
                         </div>
                         <div class="noVNC_audio_controls">
-                            <label for="noVNC_audio_volume">Volume:</label>
+                            <button id="noVNC_audio_toggle" class="noVNC_audio_toggle_btn">🔊 开启音频</button>
+                        </div>
+                        <div class="noVNC_audio_controls">
+                            <label for="noVNC_audio_volume">音量:</label>
                             <input type="range" id="noVNC_audio_volume" min="0" max="100" value="80">
                             <span id="noVNC_audio_volume_value">80%</span>
                         </div>
                         <div id="noVNC_audio_status" class="noVNC_audio_status">
                             <span class="noVNC_status_dot"></span>
-                            <span class="noVNC_status_text">Disconnected</span>
+                            <span class="noVNC_status_text">未连接</span>
                         </div>
                     </div>
                 </div>
