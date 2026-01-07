@@ -132,6 +132,26 @@
                 <input type="image" alt="Drag" src="app/images/drag.svg" id="noVNC_view_drag_button"
                     class="noVNC_button noVNC_hidden" title="Move/Drag viewport">
 
+                <!-- Audio (音频) -->
+                <input type="image" alt="Audio" src="app/images/audio.svg" id="noVNC_audio_button"
+                    class="noVNC_button noVNC_hidden" title="Audio">
+                <div class="noVNC_vcenter">
+                    <div id="noVNC_audio" class="noVNC_panel">
+                        <div class="noVNC_audio_controls">
+                            <button id="noVNC_audio_toggle" class="noVNC_audio_toggle_btn">🔊 开启音频</button>
+                        </div>
+                        <div class="noVNC_audio_controls">
+                            <label for="noVNC_audio_volume">音量:</label>
+                            <input type="range" id="noVNC_audio_volume" min="0" max="100" value="80">
+                            <span id="noVNC_audio_volume_value">80%</span>
+                        </div>
+                        <div id="noVNC_audio_status" class="noVNC_audio_status">
+                            <span class="noVNC_status_dot"></span>
+                            <span class="noVNC_status_text">未连接</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!--noVNC touch device only buttons-->
                 <div id="noVNC_mobile_buttons">
                     <input type="image" alt="Keyboard" src="app/images/keyboard.svg" id="noVNC_keyboard_button"
@@ -172,28 +192,7 @@
                     </div>
                 </div>
 
-                <!-- Audio (音频) -->
-                <input type="image" alt="Audio" src="app/images/audio.svg" id="noVNC_audio_button"
-                    class="noVNC_button noVNC_hidden" title="Audio">
-                <div class="noVNC_vcenter">
-                    <div id="noVNC_audio" class="noVNC_panel">
-                        <div class="noVNC_heading">
-                            <img alt="" src="app/images/audio.svg"> Audio
-                        </div>
-                        <div class="noVNC_audio_controls">
-                            <button id="noVNC_audio_toggle" class="noVNC_audio_toggle_btn">🔊 开启音频</button>
-                        </div>
-                        <div class="noVNC_audio_controls">
-                            <label for="noVNC_audio_volume">音量:</label>
-                            <input type="range" id="noVNC_audio_volume" min="0" max="100" value="80">
-                            <span id="noVNC_audio_volume_value">80%</span>
-                        </div>
-                        <div id="noVNC_audio_status" class="noVNC_audio_status">
-                            <span class="noVNC_status_dot"></span>
-                            <span class="noVNC_status_text">未连接</span>
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- IME (输入法) -->
                 <!--

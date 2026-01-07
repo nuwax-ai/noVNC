@@ -2173,6 +2173,7 @@ const UI = {
      * ------v------*/
 
     openIMEPanel() {
+        if (!document.getElementById('noVNC_ime')) return;
         UI.closeAllPanels();
         UI.openControlbar();
 
@@ -2183,6 +2184,7 @@ const UI = {
     },
 
     closeIMEPanel() {
+        if (!document.getElementById('noVNC_ime')) return;
         document.getElementById('noVNC_ime')
             .classList.remove("noVNC_open");
         document.getElementById('noVNC_ime_button')
@@ -2190,6 +2192,7 @@ const UI = {
     },
 
     toggleIMEPanel() {
+        if (!document.getElementById('noVNC_ime')) return;
         if (document.getElementById('noVNC_ime')
             .classList.contains("noVNC_open")) {
             UI.closeIMEPanel();
