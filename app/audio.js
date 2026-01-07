@@ -32,8 +32,17 @@ class AudioManager {
         this.sampleRate = 48000;
         this.channels = 2;
 
+        // 重试配置
+        this.maxRetries = 5;           // 最大重试次数
+        this.retryCount = 0;           // 当前重试次数
+        this.retryDelay = 2000;        // 重试间隔 (ms)
+        this.retryTimer = null;        // 重试定时器
+        this.lastWsUrl = null;         // 上次连接的URL（用于重试）
+        this.autoRetryEnabled = true;  // 是否启用自动重试
+
         // 回调函数
         this.onStatusChange = null;
+        this.onMaxRetriesReached = null;  // 达到最大重试次数的回调
 
         // OpusDecoder 加载状态
         this.opusDecoderReady = false;
@@ -108,6 +117,9 @@ class AudioManager {
             // 初始化 Web Audio API
             await this._initAudioContext();
 
+            // 保存URL用于重试
+            this.lastWsUrl = wsUrl;
+
             // 连接 WebSocket
             this.ws = new WebSocket(wsUrl);
             this.ws.binaryType = 'arraybuffer';
@@ -115,6 +127,7 @@ class AudioManager {
             this.ws.onopen = () => {
                 Log.Info('[Audio] WebSocket 已连接');
                 this.connected = true;
+                this.retryCount = 0;  // 连接成功，重置重试计数
                 this._updateStatus('connected', '音频已连接');
             };
 
@@ -139,8 +152,28 @@ class AudioManager {
             this.ws.onclose = () => {
                 Log.Info('[Audio] WebSocket 已关闭');
                 this.connected = false;
-                this._updateStatus('disconnected', '音频已断开');
                 this._cleanup();
+
+                // 自动重试逻辑
+                if (this.autoRetryEnabled && this.retryCount < this.maxRetries) {
+                    this.retryCount++;
+                    Log.Info('[Audio] 将在 ' + (this.retryDelay / 1000) + ' 秒后重试 (' + this.retryCount + '/' + this.maxRetries + ')');
+                    this._updateStatus('connecting', '重试中 (' + this.retryCount + '/' + this.maxRetries + ')');
+
+                    this.retryTimer = setTimeout(() => {
+                        if (this.lastWsUrl && this.autoRetryEnabled) {
+                            this.connect(this.lastWsUrl);
+                        }
+                    }, this.retryDelay);
+                } else if (this.retryCount >= this.maxRetries) {
+                    Log.Warn('[Audio] 已达到最大重试次数 (' + this.maxRetries + ')');
+                    this._updateStatus('error', '连接失败，请手动重试');
+                    if (this.onMaxRetriesReached) {
+                        this.onMaxRetriesReached();
+                    }
+                } else {
+                    this._updateStatus('disconnected', '音频已断开');
+                }
             };
 
         } catch (err) {
@@ -154,11 +187,21 @@ class AudioManager {
      * 断开音频流
      */
     disconnect() {
+        // 禁用自动重试
+        this.autoRetryEnabled = false;
+
+        // 清除重试定时器
+        if (this.retryTimer) {
+            clearTimeout(this.retryTimer);
+            this.retryTimer = null;
+        }
+
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
         this.connected = false;
+        this.retryCount = 0;
         this._cleanup();
         this._updateStatus('disconnected', '音频已停止');
         Log.Info('[Audio] 音频流已断开');

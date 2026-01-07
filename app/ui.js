@@ -141,7 +141,7 @@ const UI = {
         UI.addClipboardHandlers();
         UI.addSettingsHandlers();
         UI.addAudioHandlers();
-        UI.addIMEHandlers();
+        // UI.addIMEHandlers();
         document.getElementById("noVNC_status")
             .addEventListener('click', UI.hideStatus);
 
@@ -1967,10 +1967,22 @@ const UI = {
             if (path) {
                 const match = path.match(/computer\/vnc\/([^\/]+)\/([^\/]+)\/websockify/);
                 if (match) {
+                    // match[1] 是 userId
+                    // match[2] 是 projectId
+
                     if (!UI.userId) {
                         UI.userId = match[1];
                     }
-                    UI.projectId = match[2];
+
+                    // 特殊逻辑：如果提取到的 projectId 是 "666" (硬编码占位符)，
+                    // 并且我们有 userId，则使用 userId 作为 projectId
+                    const extractedProjectId = match[2];
+                    if (extractedProjectId === '666' && UI.userId) {
+                        UI.projectId = UI.userId;
+                    } else {
+                        UI.projectId = extractedProjectId;
+                    }
+
                     // 如果提取到了 user_id，确保启用调试模式
                     if (UI.userId) {
                         UI.debugMode = true;
@@ -1984,7 +1996,7 @@ const UI = {
         // 如果有 project_id，显示音频和输入法按钮
         if (UI.projectId) {
             document.getElementById('noVNC_audio_button').classList.remove('noVNC_hidden');
-            document.getElementById('noVNC_ime_button').classList.remove('noVNC_hidden');
+            // document.getElementById('noVNC_ime_button').classList.remove('noVNC_hidden');
         }
     },
 
@@ -1997,20 +2009,53 @@ const UI = {
             return;
         }
 
-        Log.Info('[Audio/IME] 自动启动输入法... (debugMode=' + UI.debugMode + ')');
-        // 音频默认不自动启动，需要用户手动点击音频按钮
-        Log.Info('[Audio] 音频默认静音，点击音频按钮开启');
+        Log.Info('[Audio/IME] 自动启动音频和输入法... (debugMode=' + UI.debugMode + ')');
+
+        // 启动音频（自动重试）
+        // 启动音频（自动重试）
+        // try {
+        //     const audioWsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+        //     Log.Info('[Audio] WebSocket URL: ' + audioWsUrl);
+
+        //     // 设置达到最大重试次数的回调
+        //     audioManager.onMaxRetriesReached = () => {
+        //         Log.Warn('[Audio] 自动连接失败，请手动点击音频按钮重试');
+        //         document.getElementById('noVNC_audio_button').classList.remove('noVNC_audio_active');
+        //     };
+
+        //     // 启用自动重试
+        //     audioManager.autoRetryEnabled = true;
+        //     audioManager.retryCount = 0;
+
+        //     await audioManager.connect(audioWsUrl);
+        //     UI.audioEnabled = true;
+        //     document.getElementById('noVNC_audio_button').classList.add('noVNC_audio_active');
+
+        //     // 添加用户交互监听以恢复音频上下文
+        //     const resumeAudio = () => {
+        //         audioManager.resume();
+        //         document.removeEventListener('click', resumeAudio);
+        //         document.removeEventListener('keydown', resumeAudio);
+        //         document.removeEventListener('touchstart', resumeAudio);
+        //     };
+        //     document.addEventListener('click', resumeAudio);
+        //     document.addEventListener('keydown', resumeAudio);
+        //     document.addEventListener('touchstart', resumeAudio);
+
+        // } catch (err) {
+        //     Log.Error('[Audio] 自动启动失败: ' + err);
+        // }
 
         // 启动输入法
-        try {
-            const imeWsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
-            Log.Info('[IME] WebSocket URL: ' + imeWsUrl);
-            await imeManager.connect(imeWsUrl);
-            UI.imeEnabled = true;
-            document.getElementById('noVNC_ime_button').classList.add('noVNC_ime_active');
-        } catch (err) {
-            Log.Error('[IME] 自动启动失败: ' + err);
-        }
+        // try {
+        //     const imeWsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+        //     Log.Info('[IME] WebSocket URL: ' + imeWsUrl);
+        //     await imeManager.connect(imeWsUrl);
+        //     UI.imeEnabled = true;
+        //     document.getElementById('noVNC_ime_button').classList.add('noVNC_ime_active');
+        // } catch (err) {
+        //     Log.Error('[IME] 自动启动失败: ' + err);
+        // }
     },
 
     /**
@@ -2112,6 +2157,11 @@ const UI = {
                 return;
             }
             const wsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+
+            // 手动开启时，启用自动重试
+            audioManager.autoRetryEnabled = true;
+            audioManager.retryCount = 0;
+
             await audioManager.connect(wsUrl);
         }
     },
