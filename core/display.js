@@ -49,9 +49,11 @@ export default class Display {
         this._backbuffer = document.createElement('canvas');
         this._drawCtx = this._backbuffer.getContext('2d');
 
-        this._damageBounds = { left: 0, top: 0,
-                               right: this._backbuffer.width,
-                               bottom: this._backbuffer.height };
+        this._damageBounds = {
+            left: 0, top: 0,
+            right: this._backbuffer.width,
+            bottom: this._backbuffer.height
+        };
 
         Log.Debug("User Agent: " + navigator.userAgent);
 
@@ -61,6 +63,18 @@ export default class Display {
 
         this._scale = 1.0;
         this._clipViewport = false;
+
+        // Audio icon state (toggled by clicks)
+        this.audioEnabled = false;
+
+        // Preload audio icons (PNG for smooth rendering)
+        this._audioIconOn = new Image();
+        this._audioIconOn.src = 'app/images/audio-on.png';
+        this._audioIconOff = new Image();
+        this._audioIconOff.src = 'app/images/audio-muted.png';
+
+        // Track if we have received any frame data (pixels)
+        this._hasReceivedData = false;
     }
 
     // ===== PROPERTIES =====
@@ -134,8 +148,8 @@ export default class Display {
     viewportChangeSize(width, height) {
 
         if (!this._clipViewport ||
-            typeof(width) === "undefined" ||
-            typeof(height) === "undefined") {
+            typeof (width) === "undefined" ||
+            typeof (height) === "undefined") {
 
             Log.Debug("Setting viewport to full display region");
             width = this._fbWidth;
@@ -287,13 +301,48 @@ export default class Display {
                 //        as well (see copyImage()), but we haven't
                 //        noticed any problem yet.
                 this._targetCtx.drawImage(this._backbuffer,
-                                          x, y, w, h,
-                                          vx, vy, w, h);
+                    x, y, w, h,
+                    vx, vy, w, h);
             }
 
             this._damageBounds.left = this._damageBounds.top = 65535;
             this._damageBounds.right = this._damageBounds.bottom = 0;
         }
+
+        // Always draw the system bar icon (outside conditional so it persists)
+        this._drawSystemBarIcon();
+    }
+
+    _drawSystemBarIcon() {
+        if (!this._hasReceivedData) return;
+
+        const ctx = this._targetCtx;
+        const iconSize = 25;
+        const padding = 3;
+        // Use actual canvas dimensions for positioning
+        const canvasWidth = this._target.width;
+        // Position: To the left of the system tray icons (moved 10px left per user request)
+        const x = canvasWidth - iconSize - padding - 170;
+        const y = padding - 2;
+
+        // Draw the appropriate SVG icon with smoothing enabled
+        const icon = this.audioEnabled ? this._audioIconOn : this._audioIconOff;
+        if (icon && icon.complete) {
+            ctx.save();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(icon, x, y, iconSize, iconSize);
+            ctx.restore();
+        }
+
+        // Store bounds for hit testing - scale coordinates to match mouse events
+        const scale = this._scale || 1;
+        this.audioIconBounds = {
+            x: x * scale,
+            y: y * scale,
+            w: iconSize * scale,
+            h: iconSize * scale
+        };
     }
 
     pending() {
@@ -327,6 +376,8 @@ export default class Display {
             this._setFillColor(color);
             this._drawCtx.fillRect(x, y, width, height);
             this._damage(x, y, width, height);
+
+            this._hasReceivedData = true;
         }
     }
 
@@ -355,8 +406,8 @@ export default class Display {
             this._drawCtx.imageSmoothingEnabled = false;
 
             this._drawCtx.drawImage(this._backbuffer,
-                                    oldX, oldY, w, h,
-                                    newX, newY, w, h);
+                oldX, oldY, w, h,
+                newX, newY, w, h);
             this._damage(newX, newY, w, h);
         }
     }
@@ -409,11 +460,13 @@ export default class Display {
         } else {
             // NB(directxman12): arr must be an Type Array view
             let data = new Uint8ClampedArray(arr.buffer,
-                                             arr.byteOffset + offset,
-                                             width * height * 4);
+                arr.byteOffset + offset,
+                width * height * 4);
             let img = new ImageData(data, width, height);
             this._drawCtx.putImageData(img, x, y);
             this._damage(x, y, width, height);
+
+            this._hasReceivedData = true;
         }
     }
 
@@ -424,9 +477,11 @@ export default class Display {
             const [x, y] = args;
             this._damage(x, y, img.width, img.height);
         } else {
-            const [,, sw, sh, dx, dy] = args;
+            const [, , sw, sh, dx, dy] = args;
             this._damage(dx, dy, sw, sh);
         }
+
+        this._hasReceivedData = true;
     }
 
     autoscale(containerWidth, containerHeight) {
@@ -516,8 +571,8 @@ export default class Display {
                     if (a.img.complete) {
                         if (a.img.width !== a.width || a.img.height !== a.height) {
                             Log.Error("Decoded image has incorrect dimensions. Got " +
-                                      a.img.width + "x" + a.img.height + ". Expected " +
-                                      a.width + "x" + a.height + ".");
+                                a.img.width + "x" + a.img.height + ". Expected " +
+                                a.width + "x" + a.height + ".");
                             return;
                         }
                         this.drawImage(a.img, a.x, a.y);
@@ -537,8 +592,8 @@ export default class Display {
                         let frame = a.frame.frame;
                         if (frame.codedWidth < a.width || frame.codedHeight < a.height) {
                             Log.Warn("Decoded video frame does not cover its full rectangle area. Expecting at least " +
-                                      a.width + "x" + a.height + " but got " +
-                                      frame.codedWidth + "x" + frame.codedHeight);
+                                a.width + "x" + a.height + " but got " +
+                                frame.codedWidth + "x" + frame.codedHeight);
                         }
                         const sx = 0;
                         const sy = 0;

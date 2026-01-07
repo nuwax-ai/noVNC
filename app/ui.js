@@ -20,6 +20,10 @@ import Keyboard from "../core/input/keyboard.js";
 import RFB from "../core/rfb.js";
 import * as WebUtil from "./webutil.js";
 
+// 音频和输入法模块
+import audioManager from "./audio.js";
+import imeManager from "./ime.js";
+
 const PAGE_TITLE = "noVNC";
 
 const LINGUAS = ["cs", "de", "el", "es", "fr", "it", "ja", "ko", "nl", "pl", "pt_BR", "ru", "sv", "tr", "zh_CN", "zh_TW"];
@@ -51,6 +55,15 @@ const UI = {
     // 心跳保活定时器
     keepaliveInterval: null,
     keepaliveIntervalMs: 60000, // 60秒发送一次心跳
+
+    // 音频和输入法状态
+    audioEnabled: false,
+    imeEnabled: false,
+    // 从 URL 参数获取的用户信息
+    userId: null,
+    projectId: null,
+    baseUrl: null,
+    debugMode: false,  // 调试模式（包含 user_id）
 
     async start(options = {}) {
         UI.customSettings = options.settings || {};
@@ -127,8 +140,13 @@ const UI = {
         UI.addConnectionControlHandlers();
         UI.addClipboardHandlers();
         UI.addSettingsHandlers();
+        UI.addAudioHandlers();
+        // UI.addIMEHandlers();
         document.getElementById("noVNC_status")
             .addEventListener('click', UI.hideStatus);
+
+        // 初始化音频和输入法参数
+        UI.initAudioIMEParams();
 
         // Bootstrap fallback input handler
         UI.keyboardinputReset();
@@ -346,6 +364,28 @@ const UI = {
             .addEventListener('click', UI.toggleClipboardPanel);
         document.getElementById("noVNC_clipboard_text")
             .addEventListener('change', UI.clipboardSend);
+    },
+
+    // 音频事件处理器
+    addAudioHandlers() {
+        document.getElementById("noVNC_audio_button")
+            .addEventListener('click', UI.toggleAudioPanel);
+        document.getElementById("noVNC_audio_volume")
+            .addEventListener('input', UI.onAudioVolumeChange);
+        document.getElementById("noVNC_audio_toggle")
+            .addEventListener('click', UI.toggleAudio);
+
+        // 设置音频状态回调
+        audioManager.onStatusChange = UI.onAudioStatusChange;
+    },
+
+    // 输入法事件处理器
+    addIMEHandlers() {
+        document.getElementById("noVNC_ime_button")
+            .addEventListener('click', UI.toggleIMEPanel);
+
+        // 设置输入法状态回调
+        imeManager.onStatusChange = UI.onIMEStatusChange;
     },
 
     // Add a call to save settings when the element changes,
@@ -873,6 +913,8 @@ const UI = {
         UI.closePowerPanel();
         UI.closeClipboardPanel();
         UI.closeExtraKeys();
+        UI.closeAudioPanel();
+        UI.closeIMEPanel();
     },
 
     /* ------^-------
@@ -1097,6 +1139,7 @@ const UI = {
 
         UI.rfb.addEventListener("connect", UI.connectFinished);
         UI.rfb.addEventListener("disconnect", UI.disconnectFinished);
+        UI.rfb.addEventListener("audioiconclick", UI.toggleAudio);
         UI.rfb.addEventListener("serververification", UI.serverVerify);
         UI.rfb.addEventListener("credentialsrequired", UI.credentials);
         UI.rfb.addEventListener("securityfailure", UI.securityFailed);
@@ -1170,6 +1213,9 @@ const UI = {
         // 启动心跳保活定时器
         UI.startKeepalive();
 
+        // 自动启动音频和输入法
+        UI.autoStartAudioIME();
+
         // Do this last because it can only be used on rendered elements
         UI.rfb.focus();
     },
@@ -1181,7 +1227,7 @@ const UI = {
             if (UI.rfb && UI.connected) {
                 // 发送一个 FramebufferUpdateRequest 来保持连接
                 // 这不会影响远程桌面，但会保持 WebSocket 连接活跃
-                console.log('[VNC] Sending keepalive...');
+                Log.Info('[VNC] Sending keepalive...');
                 try {
                     // 使用 Websock 的正确 API 发送数据
                     if (UI.rfb._sock && UI.rfb._sock.readyState === 'open') {
@@ -1194,16 +1240,16 @@ const UI = {
                         UI.rfb._sock.sQpush16(1);    // width
                         UI.rfb._sock.sQpush16(1);    // height
                         UI.rfb._sock.flush();
-                        console.log('[VNC] Keepalive sent successfully');
+                        Log.Info('[VNC] Keepalive sent successfully');
                     } else {
-                        console.log('[VNC] Socket not open, readyState:', UI.rfb._sock?.readyState);
+                        Log.Info('[VNC] Socket not open, readyState:', UI.rfb._sock?.readyState);
                     }
                 } catch (err) {
-                    console.warn('[VNC] Keepalive failed:', err);
+                    Log.Warn('[VNC] Keepalive failed:', err);
                 }
             }
         }, UI.keepaliveIntervalMs);
-        console.log('[VNC] Keepalive started, interval:', UI.keepaliveIntervalMs, 'ms');
+        Log.Info('[VNC] Keepalive started, interval:', UI.keepaliveIntervalMs, 'ms');
     },
 
     // 停止心跳保活
@@ -1224,6 +1270,9 @@ const UI = {
 
         // 停止心跳保活
         UI.stopKeepalive();
+
+        // 停止音频和输入法
+        UI.stopAudioIME();
 
         // This variable is ideally set when disconnection starts, but
         // when the disconnection isn't clean or if it is initiated by
@@ -1865,6 +1914,333 @@ const UI = {
 
     /* ------^-------
      *    /MISC
+     * ==============
+     *  AUDIO & IME
+     * ------v------*/
+
+    /**
+     * 初始化音频和输入法参数
+     * 从 URL 参数中获取 user_id, project_id, base_url
+     * 
+     * 正式模式: /computer/audio/{project_id}/ws
+     * 调试模式: /computer/audio/{user_id}/{project_id}/ws (需要 debug=true 或 user_id 参数)
+     */
+    initAudioIMEParams() {
+        // 从 URL 参数获取
+        UI.userId = WebUtil.getConfigVar('user_id');
+        UI.projectId = WebUtil.getConfigVar('project_id');
+
+        // 检测调试模式：URL 参数 debug=true 或者明确传递了 user_id
+        const debugParam = WebUtil.getConfigVar('debug');
+        UI.debugMode = (debugParam === 'true' || debugParam === '1') || !!UI.userId;
+
+        // 计算基础 URL（从当前页面 URL 推断）
+        const currentUrl = new URL(window.location.href);
+        // 如果路径包含 /computer/vnc/，则提取基础 URL
+        const pathMatch = currentUrl.pathname.match(/^(.*?)\/computer\/vnc\//);
+        if (pathMatch) {
+            UI.baseUrl = `${currentUrl.protocol}//${currentUrl.host}${pathMatch[1] || ''}`;
+
+            // 从路径中提取 project_id（如果 URL 参数未提供）
+            // 路径格式: /computer/vnc/{user_id}/{project_id}/vnc.html 或 /computer/vnc/{project_id}/vnc.html
+            if (!UI.projectId) {
+                const pathParts = currentUrl.pathname.replace(pathMatch[0], '').split('/');
+                if (pathParts.length >= 2 && pathParts[1]) {
+                    // 调试模式路径: {user_id}/{project_id}/vnc.html
+                    UI.projectId = pathParts[1];
+                    if (!UI.userId) {
+                        UI.userId = pathParts[0];
+                        UI.debugMode = true;
+                    }
+                } else if (pathParts.length >= 1 && pathParts[0]) {
+                    // 正式模式路径: {project_id}/vnc.html
+                    UI.projectId = pathParts[0];
+                }
+            }
+        } else {
+            // 尝试从 URL 参数获取
+            UI.baseUrl = WebUtil.getConfigVar('base_url') || `${currentUrl.protocol}//${currentUrl.host}`;
+        }
+
+        // 尝试从 path 参数中提取 project_id 和 user_id (针对 LOCAL_DEV 场景)
+        if (!UI.projectId) {
+            const path = WebUtil.getConfigVar('path');
+            if (path) {
+                const match = path.match(/computer\/vnc\/([^\/]+)\/([^\/]+)\/websockify/);
+                if (match) {
+                    // match[1] 是 userId
+                    // match[2] 是 projectId
+
+                    if (!UI.userId) {
+                        UI.userId = match[1];
+                    }
+
+                    // 特殊逻辑：如果提取到的 projectId 是 "666" (硬编码占位符)，
+                    // 并且我们有 userId，则使用 userId 作为 projectId
+                    const extractedProjectId = match[2];
+                    if (extractedProjectId === '666' && UI.userId) {
+                        UI.projectId = UI.userId;
+                    } else {
+                        UI.projectId = extractedProjectId;
+                    }
+
+                    // 如果提取到了 user_id，确保启用调试模式
+                    if (UI.userId) {
+                        UI.debugMode = true;
+                    }
+                }
+            }
+        }
+
+        Log.Info('[Audio/IME] 参数初始化: projectId=' + UI.projectId + ', userId=' + UI.userId + ', baseUrl=' + UI.baseUrl + ', debugMode=' + UI.debugMode);
+
+        // 如果有 project_id，显示音频和输入法按钮
+        if (UI.projectId) {
+            document.getElementById('noVNC_audio_button').classList.remove('noVNC_hidden');
+            // document.getElementById('noVNC_ime_button').classList.remove('noVNC_hidden');
+        }
+    },
+
+    /**
+     * 自动启动音频和输入法（VNC 连接成功后调用）
+     */
+    async autoStartAudioIME() {
+        if (!UI.projectId || !UI.baseUrl) {
+            Log.Warn('[Audio/IME] 缺少必要参数 (projectId/baseUrl)，无法自动启动');
+            return;
+        }
+
+        Log.Info('[Audio/IME] 自动启动音频和输入法... (debugMode=' + UI.debugMode + ')');
+
+        // 启动音频（自动重试）
+        // 启动音频（自动重试）
+        // try {
+        //     const audioWsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+        //     Log.Info('[Audio] WebSocket URL: ' + audioWsUrl);
+
+        //     // 设置达到最大重试次数的回调
+        //     audioManager.onMaxRetriesReached = () => {
+        //         Log.Warn('[Audio] 自动连接失败，请手动点击音频按钮重试');
+        //         document.getElementById('noVNC_audio_button').classList.remove('noVNC_audio_active');
+        //     };
+
+        //     // 启用自动重试
+        //     audioManager.autoRetryEnabled = true;
+        //     audioManager.retryCount = 0;
+
+        //     await audioManager.connect(audioWsUrl);
+        //     UI.audioEnabled = true;
+        //     document.getElementById('noVNC_audio_button').classList.add('noVNC_audio_active');
+
+        //     // 添加用户交互监听以恢复音频上下文
+        //     const resumeAudio = () => {
+        //         audioManager.resume();
+        //         document.removeEventListener('click', resumeAudio);
+        //         document.removeEventListener('keydown', resumeAudio);
+        //         document.removeEventListener('touchstart', resumeAudio);
+        //     };
+        //     document.addEventListener('click', resumeAudio);
+        //     document.addEventListener('keydown', resumeAudio);
+        //     document.addEventListener('touchstart', resumeAudio);
+
+        // } catch (err) {
+        //     Log.Error('[Audio] 自动启动失败: ' + err);
+        // }
+
+        // 启动输入法
+        // try {
+        //     const imeWsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+        //     Log.Info('[IME] WebSocket URL: ' + imeWsUrl);
+        //     await imeManager.connect(imeWsUrl);
+        //     UI.imeEnabled = true;
+        //     document.getElementById('noVNC_ime_button').classList.add('noVNC_ime_active');
+        // } catch (err) {
+        //     Log.Error('[IME] 自动启动失败: ' + err);
+        // }
+    },
+
+    /**
+     * 停止音频和输入法（VNC 断开时调用）
+     */
+    stopAudioIME() {
+        if (UI.audioEnabled) {
+            audioManager.disconnect();
+            UI.audioEnabled = false;
+            document.getElementById('noVNC_audio_button').classList.remove('noVNC_audio_active');
+        }
+
+        if (UI.imeEnabled) {
+            imeManager.disconnect();
+            UI.imeEnabled = false;
+            document.getElementById('noVNC_ime_button').classList.remove('noVNC_ime_active');
+        }
+    },
+
+    /* ------^-------
+     * /AUDIO & IME
+     * ==============
+     *  AUDIO PANEL
+     * ------v------*/
+
+    openAudioPanel() {
+        UI.closeAllPanels();
+        UI.openControlbar();
+
+        document.getElementById('noVNC_audio')
+            .classList.add("noVNC_open");
+        document.getElementById('noVNC_audio_button')
+            .classList.add("noVNC_selected");
+    },
+
+    closeAudioPanel() {
+        document.getElementById('noVNC_audio')
+            .classList.remove("noVNC_open");
+        document.getElementById('noVNC_audio_button')
+            .classList.remove("noVNC_selected");
+    },
+
+    toggleAudioPanel() {
+        if (document.getElementById('noVNC_audio')
+            .classList.contains("noVNC_open")) {
+            UI.closeAudioPanel();
+        } else {
+            UI.openAudioPanel();
+        }
+    },
+
+    /**
+     * 音量变化处理
+     */
+    onAudioVolumeChange() {
+        const volumeSlider = document.getElementById('noVNC_audio_volume');
+        const volumeValue = document.getElementById('noVNC_audio_volume_value');
+        const volume = parseInt(volumeSlider.value);
+
+        volumeValue.textContent = volume + '%';
+        audioManager.setVolume(volume / 100);
+    },
+
+    /**
+     * 音频状态变化回调
+     */
+    onAudioStatusChange(status, message) {
+        const statusEl = document.getElementById('noVNC_audio_status');
+        const statusText = statusEl.querySelector('.noVNC_status_text');
+
+        statusEl.className = 'noVNC_audio_status ' + status;
+        statusText.textContent = message;
+
+        // 更新按钮状态
+        const btn = document.getElementById('noVNC_audio_button');
+        const toggleBtn = document.getElementById('noVNC_audio_toggle');
+        if (status === 'connected') {
+            btn.classList.add('noVNC_audio_active');
+            toggleBtn.textContent = '🔇 关闭音频';
+            toggleBtn.classList.add('active');
+            UI.audioEnabled = true;
+        } else if (status === 'disconnected' || status === 'error') {
+            btn.classList.remove('noVNC_audio_active');
+            toggleBtn.textContent = '🔊 开启音频';
+            toggleBtn.classList.remove('active');
+            UI.audioEnabled = false;
+        }
+    },
+
+    /**
+     * 切换音频连接
+     */
+    async toggleAudio() {
+        if (UI.audioEnabled) {
+            audioManager.disconnect();
+        } else {
+            if (!UI.projectId || !UI.baseUrl) {
+                Log.Warn('[Audio] 缺少必要参数');
+                return;
+            }
+            const wsUrl = audioManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+
+            // 手动开启时，启用自动重试
+            audioManager.autoRetryEnabled = true;
+            audioManager.retryCount = 0;
+
+            await audioManager.connect(wsUrl);
+        }
+    },
+
+    /* ------^-------
+     * /AUDIO PANEL
+     * ==============
+     *   IME PANEL
+     * ------v------*/
+
+    openIMEPanel() {
+        if (!document.getElementById('noVNC_ime')) return;
+        UI.closeAllPanels();
+        UI.openControlbar();
+
+        document.getElementById('noVNC_ime')
+            .classList.add("noVNC_open");
+        document.getElementById('noVNC_ime_button')
+            .classList.add("noVNC_selected");
+    },
+
+    closeIMEPanel() {
+        if (!document.getElementById('noVNC_ime')) return;
+        document.getElementById('noVNC_ime')
+            .classList.remove("noVNC_open");
+        document.getElementById('noVNC_ime_button')
+            .classList.remove("noVNC_selected");
+    },
+
+    toggleIMEPanel() {
+        if (!document.getElementById('noVNC_ime')) return;
+        if (document.getElementById('noVNC_ime')
+            .classList.contains("noVNC_open")) {
+            UI.closeIMEPanel();
+        } else {
+            UI.openIMEPanel();
+        }
+    },
+
+    /**
+     * 输入法状态变化回调
+     */
+    onIMEStatusChange(status, message) {
+        const statusEl = document.getElementById('noVNC_ime_status');
+        const statusText = statusEl.querySelector('.noVNC_status_text');
+
+        statusEl.className = 'noVNC_ime_status ' + status;
+        statusText.textContent = message;
+
+        // 更新按钮状态
+        const btn = document.getElementById('noVNC_ime_button');
+        if (status === 'connected') {
+            btn.classList.add('noVNC_ime_active');
+            UI.imeEnabled = true;
+        } else if (status === 'disconnected' || status === 'error') {
+            btn.classList.remove('noVNC_ime_active');
+            UI.imeEnabled = false;
+        }
+    },
+
+    /**
+     * 切换输入法连接
+     */
+    async toggleIME() {
+        if (UI.imeEnabled) {
+            imeManager.disconnect();
+        } else {
+            if (!UI.projectId || !UI.baseUrl) {
+                Log.Warn('[IME] 缺少必要参数');
+                return;
+            }
+            const wsUrl = imeManager.buildWsUrl(UI.baseUrl, UI.projectId, UI.userId, UI.debugMode);
+            await imeManager.connect(wsUrl);
+        }
+    },
+
+    /* ------^-------
+     *  /IME PANEL
      * ==============
      */
 };

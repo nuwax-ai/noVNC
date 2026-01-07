@@ -17,7 +17,7 @@
     "docs/LICENSE*"
   ],
   "scripts": {
-    "dev": "python3 -m http.server 8080",
+    "dev": "npx -y http-server -p 8080 --cors -c-1",
     "start:desktop": "./scripts/start_desktop.sh",
     "lint": "eslint app core po/po2js po/xgettext-html tests utils",
     "test": "karma start karma.conf.js",

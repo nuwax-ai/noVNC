@@ -6,7 +6,7 @@
 # 配置参数
 API_HOST="${API_HOST:-192.168.1.34}"
 API_PORT="${API_PORT:-8086}"
-USER_ID="${USER_ID:-user_123}"
+USER_ID="${USER_ID:-1746495851}"
 REQUEST_ID="${REQUEST_ID:-req_$(date +%s)}"
 
 # 默认提示词
