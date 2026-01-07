@@ -1124,7 +1124,6 @@ export default class RFB extends EventTargetMixin {
         // Check for click on Audio Icon
         if (ev.type === 'mousedown' && this._display.audioIconBounds) {
             const b = this._display.audioIconBounds;
-            console.log('[Audio] Click pos:', pos.x, pos.y, 'Icon bounds:', b);
             if (pos.x >= b.x && pos.x <= b.x + b.w &&
                 pos.y >= b.y && pos.y <= b.y + b.h) {
                 console.log('[Audio] Icon clicked! Toggling audio...');

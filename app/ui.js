@@ -23,6 +23,7 @@ import * as WebUtil from "./webutil.js";
 // 音频和输入法模块
 import audioManager from "./audio.js";
 import imeManager from "./ime.js";
+import clipboardManager from "./clipboard.js";
 
 const PAGE_TITLE = "noVNC";
 
@@ -63,6 +64,8 @@ const UI = {
     userId: null,
     projectId: null,
     baseUrl: null,
+    debugMode: false,  // 调试模式（包含 user_id）
+
     debugMode: false,  // 调试模式（包含 user_id）
 
     async start(options = {}) {
@@ -138,7 +141,7 @@ const UI = {
         UI.addExtraKeysHandlers();
         UI.addMachineHandlers();
         UI.addConnectionControlHandlers();
-        UI.addClipboardHandlers();
+        await UI.addClipboardHandlers();  // 需要 await 等待剪贴板初始化完成
         UI.addSettingsHandlers();
         UI.addAudioHandlers();
         // UI.addIMEHandlers();
@@ -359,11 +362,36 @@ const UI = {
             .addEventListener('click', UI.setCredentials);
     },
 
-    addClipboardHandlers() {
+    async addClipboardHandlers() {
+        // 剪贴板面板按钮
         document.getElementById("noVNC_clipboard_button")
             .addEventListener('click', UI.toggleClipboardPanel);
+        // 文本框内容变化时发送到远程
         document.getElementById("noVNC_clipboard_text")
             .addEventListener('change', UI.clipboardSend);
+
+        // 自动同步开关
+        document.getElementById("noVNC_clipboard_auto_sync")
+            .addEventListener('change', UI.toggleClipboardAutoSync);
+
+        // 快捷按钮
+        document.getElementById("noVNC_clipboard_read_local")
+            .addEventListener('click', async () => {
+                const text = await clipboardManager.readLocal();
+                if (text !== null) {
+                    document.getElementById("noVNC_clipboard_text").value = text;
+                }
+            });
+        document.getElementById("noVNC_clipboard_send_remote")
+            .addEventListener('click', UI.clipboardSend);
+        document.getElementById("noVNC_clipboard_copy_local")
+            .addEventListener('click', UI.clipboardCopyToLocal);
+
+        // 设置剪贴板状态回调
+        clipboardManager.onStatusChange = UI.updateClipboardSyncStatus;
+
+        // 初始化剪贴板状态（根据权限）- 必须 await 等待完成
+        await UI.initClipboard();
     },
 
     // 音频事件处理器
@@ -1042,17 +1070,87 @@ const UI = {
         }
     },
 
+    /**
+     * 接收远程剪贴板内容
+     * 当远程桌面剪贴板变化时触发
+     */
     clipboardReceive(e) {
         Log.Debug(">> UI.clipboardReceive: " + e.detail.text.substr(0, 40) + "...");
         document.getElementById('noVNC_clipboard_text').value = e.detail.text;
+
+        // 如果开启了自动同步，将远程内容同步到本地剪贴板
+        clipboardManager.handleRemoteText(e.detail.text);
+
         Log.Debug("<< UI.clipboardReceive");
     },
 
+    /**
+     * 发送剪贴板内容到远程
+     */
     clipboardSend() {
         const text = document.getElementById('noVNC_clipboard_text').value;
         Log.Debug(">> UI.clipboardSend: " + text.substr(0, 40) + "...");
-        UI.rfb.clipboardPasteFrom(text);
+        clipboardManager.sendToRemote(text);
         Log.Debug("<< UI.clipboardSend");
+    },
+
+    /**
+     * 切换剪贴板自动同步
+     */
+    async toggleClipboardAutoSync() {
+        const checkbox = document.getElementById('noVNC_clipboard_auto_sync');
+        const enabled = checkbox.checked;
+
+        // 调用管理器切换状态
+        const finalState = await clipboardManager.toggleAutoSync(enabled);
+
+        // 确保 UI 状态与实际状态一致
+        if (checkbox.checked !== finalState) {
+            checkbox.checked = finalState;
+        }
+    },
+
+    /**
+     * 根据权限初始化剪贴板自动同步
+     */
+    async initClipboard() {
+        const checkbox = document.getElementById('noVNC_clipboard_auto_sync');
+        await clipboardManager.init();
+        checkbox.checked = clipboardManager.autoSync;
+    },
+
+    /**
+     * 开始剪贴板同步
+     * 监听页面焦点事件，当页面获得焦点时检查本地剪贴板
+     */
+    async clipboardCopyToLocal() {
+        const text = document.getElementById('noVNC_clipboard_text').value;
+        await clipboardManager.writeLocal(text);
+    },
+
+    /**
+     * 更新剪贴板同步状态显示
+     * @param {string} status 状态类型: 'active', 'inactive', 'success', 'error'
+     * @param {string} message 状态消息
+     */
+    updateClipboardSyncStatus(status, message) {
+        const statusElement = document.getElementById('noVNC_clipboard_sync_status');
+        const dotElement = statusElement.querySelector('.noVNC_sync_status_dot');
+        const textElement = statusElement.querySelector('.noVNC_sync_status_text');
+
+        // 移除所有状态类
+        dotElement.classList.remove('active', 'inactive', 'success', 'error');
+
+        // 添加新状态类
+        dotElement.classList.add(status);
+        textElement.textContent = message;
+
+        // 根据状态显示或隐藏
+        if (message) {
+            statusElement.style.display = 'flex';
+        } else {
+            statusElement.style.display = 'none';
+        }
     },
 
     /* ------^-------
@@ -1137,6 +1235,9 @@ const UI = {
             return;
         }
 
+        // 设置 RFB 实例到剪贴板管理器
+        clipboardManager.setRFB(UI.rfb);
+
         UI.rfb.addEventListener("connect", UI.connectFinished);
         UI.rfb.addEventListener("disconnect", UI.disconnectFinished);
         UI.rfb.addEventListener("audioiconclick", UI.toggleAudio);
@@ -1216,6 +1317,10 @@ const UI = {
         // 自动启动音频和输入法
         UI.autoStartAudioIME();
 
+        // 如果剪贴板自动同步开关是开启的，恢复同步
+        // clipboardManager 已自动处理
+
+
         // Do this last because it can only be used on rendered elements
         UI.rfb.focus();
     },
@@ -1273,6 +1378,9 @@ const UI = {
 
         // 停止音频和输入法
         UI.stopAudioIME();
+
+        // 停止剪贴板同步（但保留开关状态，重连时会自动恢复）
+        clipboardManager.setRFB(null);
 
         // This variable is ideally set when disconnection starts, but
         // when the disconnection isn't clean or if it is initiated by
