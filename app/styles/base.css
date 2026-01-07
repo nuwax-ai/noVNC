@@ -674,6 +674,100 @@ html {
     display: none;
 }
 
+/* 剪贴板控制区域 */
+.noVNC_clipboard_controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 自动同步开关标签 */
+.noVNC_clipboard_sync_label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.noVNC_clipboard_sync_label span {
+    user-select: none;
+}
+
+/* 同步状态显示 */
+.noVNC_clipboard_sync_status {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* 状态指示点 */
+.noVNC_sync_status_dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #888;
+    transition: background-color 0.3s ease;
+}
+
+.noVNC_sync_status_dot.active {
+    background-color: #4CAF50;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+}
+
+.noVNC_sync_status_dot.inactive {
+    background-color: #888;
+}
+
+.noVNC_sync_status_dot.success {
+    background-color: #2196F3;
+    box-shadow: 0 0 6px rgba(33, 150, 243, 0.6);
+}
+
+.noVNC_sync_status_dot.error {
+    background-color: #F44336;
+    box-shadow: 0 0 6px rgba(244, 67, 54, 0.6);
+}
+
+/* 快捷按钮容器 */
+.noVNC_clipboard_buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+/* 快捷按钮样式 */
+.noVNC_clipboard_btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--novnc-buttongrey);
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    white-space: nowrap;
+}
+
+.noVNC_clipboard_btn:hover {
+    background-color: var(--novnc-blue);
+}
+
+.noVNC_clipboard_btn:active {
+    transform: scale(0.98);
+}
+
+.noVNC_clipboard_btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 #noVNC_clipboard_text {
     width: 360px;
     min-width: 150px;

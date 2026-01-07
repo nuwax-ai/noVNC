@@ -219,6 +219,32 @@
                         <div class="noVNC_heading">
                             <img alt="" src="app/images/clipboard.svg"> Clipboard
                         </div>
+                        <!-- 自动同步开关 / Auto sync toggle -->
+                        <div class="noVNC_clipboard_controls">
+                            <label class="noVNC_clipboard_sync_label">
+                                <input type="checkbox" id="noVNC_clipboard_auto_sync" class="toggle">
+                                <span>Auto sync clipboard</span>
+                            </label>
+                            <div id="noVNC_clipboard_sync_status" class="noVNC_clipboard_sync_status">
+                                <span class="noVNC_sync_status_dot"></span>
+                                <span class="noVNC_sync_status_text"></span>
+                            </div>
+                        </div>
+                        <!-- 快捷按钮 / Quick action buttons -->
+                        <div class="noVNC_clipboard_buttons">
+                            <button id="noVNC_clipboard_read_local" class="noVNC_clipboard_btn" 
+                                    title="Read from local clipboard">
+                                Read Local
+                            </button>
+                            <button id="noVNC_clipboard_send_remote" class="noVNC_clipboard_btn" 
+                                    title="Send to remote clipboard">
+                                Send Remote
+                            </button>
+                            <button id="noVNC_clipboard_copy_local" class="noVNC_clipboard_btn" 
+                                    title="Copy to local clipboard">
+                                Copy Local
+                            </button>
+                        </div>
                         <p class="noVNC_subheading">
                             Edit clipboard content in the textarea below.
                         </p>
