@@ -12,10 +12,10 @@
 
 let _logLevel = 'warn';
 
-let Debug = () => {};
-let Info = () => {};
-let Warn = () => {};
-let Error = () => {};
+let Debug = () => { };
+let Info = () => { };
+let Warn = () => { };
+let Error = () => { };
 
 export function initLogging(level) {
     if (typeof level === 'undefined') {
@@ -24,7 +24,7 @@ export function initLogging(level) {
         _logLevel = level;
     }
 
-    Debug = Info = Warn = Error = () => {};
+    Debug = Info = Warn = Error = () => { };
 
     if (typeof window.console !== "undefined") {
         /* eslint-disable no-console, no-fallthrough */
@@ -32,9 +32,9 @@ export function initLogging(level) {
             case 'debug':
                 Debug = console.debug.bind(window.console);
             case 'info':
-                Info  = console.info.bind(window.console);
+                Info = console.info.bind(window.console);
             case 'warn':
-                Warn  = console.warn.bind(window.console);
+                Warn = console.warn.bind(window.console);
             case 'error':
                 Error = console.error.bind(window.console);
             case 'none':

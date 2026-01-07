@@ -1121,6 +1121,26 @@ export default class RFB extends EventTargetMixin {
         let pos = clientToElement(ev.clientX, ev.clientY,
             this._canvas);
 
+        // Check for click on Audio Icon
+        if (ev.type === 'mousedown' && this._display.audioIconBounds) {
+            const b = this._display.audioIconBounds;
+            console.log('[Audio] Click pos:', pos.x, pos.y, 'Icon bounds:', b);
+            if (pos.x >= b.x && pos.x <= b.x + b.w &&
+                pos.y >= b.y && pos.y <= b.y + b.h) {
+                console.log('[Audio] Icon clicked! Toggling audio...');
+                // Toggle audio state
+                this._display.audioEnabled = !this._display.audioEnabled;
+                // Redraw to update icon
+                this._display._drawSystemBarIcon();
+                this.dispatchEvent(new CustomEvent("audioiconclick", {
+                    detail: { enabled: this._display.audioEnabled }
+                }));
+                ev.stopPropagation();
+                ev.preventDefault();
+                return;
+            }
+        }
+
         let bmask = RFB._convertButtonMask(ev.buttons);
 
         let down = ev.type == 'mousedown';
