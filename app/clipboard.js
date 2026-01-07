@@ -26,36 +26,52 @@ class ClipboardManager {
 
     /**
      * Initialize clipboard state based on permissions
+     * 根据权限状态初始化剪贴板自动同步
+     * 
+     * 注意：默认开启自动同步，因为：
+     * 1. 这是更好的用户体验
+     * 2. Clipboard API 在用户手势（如点击、焦点切换）时才会真正读取
+     * 3. 如果权限被拒绝，会在实际操作时处理
      */
     async init() {
-        Log.Debug('[Clipboard] Initializing...');
+        Log.Info('[Clipboard] Initializing...');
+        
+        // 检查 Clipboard API 是否可用
+        if (!navigator.clipboard) {
+            Log.Warn('[Clipboard] Clipboard API not supported');
+            this._updateStatus('error', _('Clipboard API not supported'));
+            return;
+        }
+
+        // 尝试查询权限状态（某些浏览器可能不支持）
+        let permissionState = 'unknown';
+        
         if (navigator.permissions && navigator.permissions.query) {
             try {
+                // 注意：某些浏览器不支持 "clipboard-read" 权限查询
                 const result = await navigator.permissions.query({ name: "clipboard-read" });
-                Log.Debug('[Clipboard] Permission query result: ' + result.state);
-                if (result.state === "granted") {
-                    this.toggleAutoSync(true);
-                } else if (result.state === "prompt") {
-                    Log.Debug('[Clipboard] Permission prompt, enabling auto sync optimistically');
-                    // Optimistically enable, but don't run immediate check (would fail without gesture)
-                    this.autoSync = true;
-                    this._startSync(false);
-                    this._updateStatus('active', _('Auto sync enabled'));
-                } else {
-                    Log.Debug('[Clipboard] Permission not granted, disabling auto sync default');
-                    this.toggleAutoSync(false);
-                }
+                permissionState = result.state;
+                Log.Info('[Clipboard] Permission query result: ' + permissionState);
             } catch (err) {
-                Log.Warn('[Clipboard] Permission query failed: ' + err);
+                // 权限查询不支持（如 Firefox），这是正常的
+                Log.Debug('[Clipboard] Permission query not supported: ' + err.message);
+                permissionState = 'unknown';
             }
+        }
+
+        // 根据权限状态决定行为
+        if (permissionState === 'denied') {
+            // 权限明确被拒绝
+            Log.Info('[Clipboard] Permission denied, disabling auto sync');
+            this.autoSync = false;
+            this._updateStatus('inactive', '');
         } else {
-            Log.Debug('[Clipboard] navigator.permissions or query not supported');
-            // Fallback: Optimistically enable if clipboard API exists
-            if (navigator.clipboard) {
-                this.autoSync = true;
-                this._startSync(false);
-                this._updateStatus('active', _('Auto sync enabled'));
-            }
+            // granted / prompt / unknown 都默认开启
+            // 实际权限检查会在用户手势时进行
+            Log.Info('[Clipboard] Enabling auto sync (permission: ' + permissionState + ')');
+            this.autoSync = true;
+            this._startSync(false); // 不立即执行，等待用户手势
+            this._updateStatus('active', _('Auto sync enabled'));
         }
     }
 

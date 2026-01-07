@@ -141,7 +141,7 @@ const UI = {
         UI.addExtraKeysHandlers();
         UI.addMachineHandlers();
         UI.addConnectionControlHandlers();
-        UI.addClipboardHandlers();
+        await UI.addClipboardHandlers();  // 需要 await 等待剪贴板初始化完成
         UI.addSettingsHandlers();
         UI.addAudioHandlers();
         // UI.addIMEHandlers();
@@ -362,7 +362,7 @@ const UI = {
             .addEventListener('click', UI.setCredentials);
     },
 
-    addClipboardHandlers() {
+    async addClipboardHandlers() {
         // 剪贴板面板按钮
         document.getElementById("noVNC_clipboard_button")
             .addEventListener('click', UI.toggleClipboardPanel);
@@ -390,8 +390,8 @@ const UI = {
         // 设置剪贴板状态回调
         clipboardManager.onStatusChange = UI.updateClipboardSyncStatus;
 
-        // 初始化剪贴板状态（根据权限）
-        UI.initClipboard();
+        // 初始化剪贴板状态（根据权限）- 必须 await 等待完成
+        await UI.initClipboard();
     },
 
     // 音频事件处理器
