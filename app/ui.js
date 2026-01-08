@@ -24,6 +24,7 @@ import * as WebUtil from "./webutil.js";
 import audioManager from "./audio.js";
 import imeManager from "./ime.js";
 import clipboardManager from "./clipboard.js";
+import fileManager from "./file.js";
 
 const PAGE_TITLE = "noVNC";
 
@@ -142,6 +143,7 @@ const UI = {
         UI.addMachineHandlers();
         UI.addConnectionControlHandlers();
         await UI.addClipboardHandlers();  // 需要 await 等待剪贴板初始化完成
+        UI.addFileHandlers();             // 添加文件拖拽处理器
         UI.addSettingsHandlers();
         UI.addAudioHandlers();
         // UI.addIMEHandlers();
@@ -392,6 +394,56 @@ const UI = {
 
         // 初始化剪贴板状态（根据权限）- 必须 await 等待完成
         await UI.initClipboard();
+    },
+
+    // 文件拖拽处理器
+    addFileHandlers() {
+        const target = document.getElementById('noVNC_container');
+
+        target.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            target.classList.add('noVNC_dragging');
+        });
+
+        target.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            target.classList.remove('noVNC_dragging');
+        });
+
+        target.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            target.classList.remove('noVNC_dragging');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                // 目前只处理第一个文件，或者循环处理
+                for (let i = 0; i < files.length; i++) {
+                    await fileManager.uploadFile(files[i]);
+                }
+            }
+        });
+
+        // 粘贴事件监听 (图片粘贴)
+        document.addEventListener('paste', async (e) => {
+            // 只有当焦点不在输入框时才处理（避免干扰正常文本粘贴）
+            const activeTag = document.activeElement.tagName;
+            if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        Log.Info('[UI] Detected image paste, uploading...');
+                        await fileManager.uploadFile(file);
+                    }
+                }
+            }
+        });
     },
 
     // 音频事件处理器
@@ -1317,6 +1369,9 @@ const UI = {
         // 自动启动音频和输入法
         UI.autoStartAudioIME();
 
+        // 自动启动文件传输
+        UI.autoStartFileTransfer();
+
         // 如果剪贴板自动同步开关是开启的，恢复同步
         // clipboardManager 已自动处理
 
@@ -1378,6 +1433,9 @@ const UI = {
 
         // 停止音频和输入法
         UI.stopAudioIME();
+
+        // 停止文件传输
+        fileManager.disconnect();
 
         // 停止剪贴板同步（但保留开关状态，重连时会自动恢复）
         clipboardManager.setRFB(null);
@@ -2171,17 +2229,47 @@ const UI = {
      * 停止音频和输入法（VNC 断开时调用）
      */
     stopAudioIME() {
+        audioManager.disconnect();
+        imeManager.disconnect();
+        fileManager.disconnect();
+
         if (UI.audioEnabled) {
-            audioManager.disconnect();
             UI.audioEnabled = false;
             document.getElementById('noVNC_audio_button').classList.remove('noVNC_audio_active');
         }
-
         if (UI.imeEnabled) {
-            imeManager.disconnect();
             UI.imeEnabled = false;
             document.getElementById('noVNC_ime_button').classList.remove('noVNC_ime_active');
         }
+    },
+
+    autoStartFileTransfer() {
+        const host = UI.getSetting('host');
+        // const port = UI.getSetting('port');
+        const path = UI.getSetting('path'); // "websockify"
+
+        let baseUrl;
+        if (host) {
+            baseUrl = (UI.getSetting('encrypt') ? 'https://' : 'http://') + host; //+ ":" + port;
+        } else {
+            baseUrl = window.location.origin;
+        }
+
+        let projectId = '666'; // fallback
+        if (UI.currProjectId) {
+            projectId = UI.currProjectId;
+        } else {
+            // 临时解析逻辑，应与 initAudioIMEParams 保持一致
+            const parts = path.split('/');
+            if (parts.length >= 2) {
+                projectId = parts[parts.length - 2];
+            }
+        }
+
+        const debugMode = UI.debugMode;
+
+        const wsUrl = fileManager.buildWsUrl(baseUrl, projectId, null, debugMode);
+        fileManager.connect(wsUrl);
     },
 
     /* ------^-------
