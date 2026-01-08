@@ -2038,8 +2038,14 @@ const UI = {
      * 初始化音频和输入法参数
      * 从 URL 参数中获取 user_id, project_id, base_url
      * 
-     * 正式模式: /computer/audio/{project_id}/ws
-     * 调试模式: /computer/audio/{user_id}/{project_id}/ws (需要 debug=true 或 user_id 参数)
+     * 支持的路径格式:
+     * - /computer/vnc/{project_id}/vnc.html (正式模式)
+     * - /computer/vnc/{user_id}/{project_id}/vnc.html (调试模式)
+     * - /computer/desktop/{project_id}/vnc.html (正式模式 - 业务环境)
+     * 
+     * 音频 WebSocket:
+     * - 正式模式: /computer/audio/{project_id}/ws
+     * - 调试模式: /computer/audio/{user_id}/{project_id}/ws
      */
     initAudioIMEParams() {
         // 从 URL 参数获取
@@ -2052,25 +2058,28 @@ const UI = {
 
         // 计算基础 URL（从当前页面 URL 推断）
         const currentUrl = new URL(window.location.href);
-        // 如果路径包含 /computer/vnc/，则提取基础 URL
-        const pathMatch = currentUrl.pathname.match(/^(.*?)\/computer\/vnc\//);
+        
+        // 匹配 /computer/vnc/ 或 /computer/desktop/ 路径
+        const pathMatch = currentUrl.pathname.match(/^(.*?)\/computer\/(vnc|desktop)\//);
         if (pathMatch) {
             UI.baseUrl = `${currentUrl.protocol}//${currentUrl.host}${pathMatch[1] || ''}`;
 
             // 从路径中提取 project_id（如果 URL 参数未提供）
-            // 路径格式: /computer/vnc/{user_id}/{project_id}/vnc.html 或 /computer/vnc/{project_id}/vnc.html
+            // 路径格式: /computer/{vnc|desktop}/{project_id}/vnc.html 
+            //          或 /computer/{vnc|desktop}/{user_id}/{project_id}/vnc.html
             if (!UI.projectId) {
                 const pathParts = currentUrl.pathname.replace(pathMatch[0], '').split('/');
-                if (pathParts.length >= 2 && pathParts[1]) {
+                // 过滤掉空字符串和 vnc.html
+                const cleanParts = pathParts.filter(p => p && p !== 'vnc.html');
+                
+                if (cleanParts.length >= 2) {
                     // 调试模式路径: {user_id}/{project_id}/vnc.html
-                    UI.projectId = pathParts[1];
-                    if (!UI.userId) {
-                        UI.userId = pathParts[0];
-                        UI.debugMode = true;
-                    }
-                } else if (pathParts.length >= 1 && pathParts[0]) {
+                    UI.userId = cleanParts[0];
+                    UI.projectId = cleanParts[1];
+                    UI.debugMode = true;
+                } else if (cleanParts.length >= 1) {
                     // 正式模式路径: {project_id}/vnc.html
-                    UI.projectId = pathParts[0];
+                    UI.projectId = cleanParts[0];
                 }
             }
         } else {
@@ -2082,18 +2091,19 @@ const UI = {
         if (!UI.projectId) {
             const path = WebUtil.getConfigVar('path');
             if (path) {
-                const match = path.match(/computer\/vnc\/([^\/]+)\/([^\/]+)\/websockify/);
+                // 同时匹配 vnc 和 desktop 路径
+                const match = path.match(/computer\/(vnc|desktop)\/([^\/]+)\/([^\/]+)\/websockify/);
                 if (match) {
-                    // match[1] 是 userId
-                    // match[2] 是 projectId
+                    // match[2] 是 userId
+                    // match[3] 是 projectId
 
                     if (!UI.userId) {
-                        UI.userId = match[1];
+                        UI.userId = match[2];
                     }
 
                     // 特殊逻辑：如果提取到的 projectId 是 "666" (硬编码占位符)，
                     // 并且我们有 userId，则使用 userId 作为 projectId
-                    const extractedProjectId = match[2];
+                    const extractedProjectId = match[3];
                     if (extractedProjectId === '666' && UI.userId) {
                         UI.projectId = UI.userId;
                     } else {
