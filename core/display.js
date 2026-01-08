@@ -93,6 +93,13 @@ export default class Display {
         this.viewportChangePos(0, 0);
     }
 
+    get viewOnly() { return this._viewOnly; }
+    set viewOnly(viewOnly) {
+        this._viewOnly = viewOnly;
+        // Re-draw to update icon visibility
+        this.flip();
+    }
+
     get width() {
         return this._fbWidth;
     }
@@ -314,7 +321,11 @@ export default class Display {
     }
 
     _drawSystemBarIcon() {
-        if (!this._hasReceivedData) return;
+        // Stop drawing if no data received or if in view-only mode
+        if (!this._hasReceivedData || this._viewOnly) {
+            this.audioIconBounds = null; // Clear bounds so clicks don't register
+            return;
+        }
 
         const ctx = this._targetCtx;
         const iconSize = 25;
@@ -327,7 +338,7 @@ export default class Display {
 
         // Draw the appropriate SVG icon with smoothing enabled
         const icon = this.audioEnabled ? this._audioIconOn : this._audioIconOff;
-        if (icon && icon.complete) {
+        if (icon && icon.complete && icon.naturalWidth > 0) {
             ctx.save();
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
