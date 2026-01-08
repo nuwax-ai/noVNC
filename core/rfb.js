@@ -262,6 +262,7 @@ export default class RFB extends EventTargetMixin {
         // before this point, since this can throw an exception
         try {
             this._display = new Display(this._canvas);
+            this._display.viewOnly = this._viewOnly;
         } catch (exc) {
             Log.Error("Display exception: " + exc);
             throw exc;
@@ -315,6 +316,10 @@ export default class RFB extends EventTargetMixin {
     get viewOnly() { return this._viewOnly; }
     set viewOnly(viewOnly) {
         this._viewOnly = viewOnly;
+
+        if (this._display) {
+            this._display.viewOnly = viewOnly;
+        }
 
         if (this._rfbConnectionState === "connecting" ||
             this._rfbConnectionState === "connected") {
@@ -1122,22 +1127,10 @@ export default class RFB extends EventTargetMixin {
             this._canvas);
 
         // Check for click on Audio Icon
-        if (ev.type === 'mousedown' && this._display.audioIconBounds) {
-            const b = this._display.audioIconBounds;
-            if (pos.x >= b.x && pos.x <= b.x + b.w &&
-                pos.y >= b.y && pos.y <= b.y + b.h) {
-                console.log('[Audio] Icon clicked! Toggling audio...');
-                // Toggle audio state
-                this._display.audioEnabled = !this._display.audioEnabled;
-                // Redraw to update icon
-                this._display._drawSystemBarIcon();
-                this.dispatchEvent(new CustomEvent("audioiconclick", {
-                    detail: { enabled: this._display.audioEnabled }
-                }));
-                ev.stopPropagation();
-                ev.preventDefault();
-                return;
-            }
+        if (ev.type === 'mousedown' && this._checkAndToggleAudio(pos.x, pos.y)) {
+            ev.stopPropagation();
+            ev.preventDefault();
+            return;
         }
 
         let bmask = RFB._convertButtonMask(ev.buttons);
@@ -1311,6 +1304,26 @@ export default class RFB extends EventTargetMixin {
         }
     }
 
+    _checkAndToggleAudio(x, y) {
+        if (this._display.audioIconBounds) {
+            const b = this._display.audioIconBounds;
+            // Check if click is within bounds
+            if (x >= b.x && x <= b.x + b.w &&
+                y >= b.y && y <= b.y + b.h) {
+                console.log('[Audio] Icon clicked! Toggling audio...');
+                // Toggle audio state
+                this._display.audioEnabled = !this._display.audioEnabled;
+                // Redraw to update icon
+                this._display._drawSystemBarIcon();
+                this.dispatchEvent(new CustomEvent("audioiconclick", {
+                    detail: { enabled: this._display.audioEnabled }
+                }));
+                return true;
+            }
+        }
+        return false;
+    }
+
     _fakeMouseMove(ev, elementX, elementY) {
         this._handleMouseMove(elementX, elementY);
         this._cursor.move(ev.detail.clientX, ev.detail.clientY);
@@ -1319,6 +1332,11 @@ export default class RFB extends EventTargetMixin {
     _handleTapEvent(ev, bmask) {
         let pos = clientToElement(ev.detail.clientX, ev.detail.clientY,
             this._canvas);
+
+        // Check for click on Audio Icon first (works even in view_only)
+        if (this._checkAndToggleAudio(pos.x, pos.y)) {
+            return;
+        }
 
         // If the user quickly taps multiple times we assume they meant to
         // hit the same spot, so slightly adjust coordinates
