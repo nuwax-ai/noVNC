@@ -516,27 +516,12 @@ export default class RFB extends EventTargetMixin {
             this._clipboardText = text;
             RFB.messages.extendedClipboardNotify(this._sock, [extendedClipboardFormatText]);
         } else {
-            let length, i;
-            let data;
+            // Use UTF-8 encoding to support Chinese and other Unicode characters
+            const utf8Text = encodeUTF8(text);
+            const data = new Uint8Array(utf8Text.length);
 
-            length = 0;
-            // eslint-disable-next-line no-unused-vars
-            for (let codePoint of text) {
-                length++;
-            }
-
-            data = new Uint8Array(length);
-
-            i = 0;
-            for (let codePoint of text) {
-                let code = codePoint.codePointAt(0);
-
-                /* Only ISO 8859-1 is supported */
-                if (code > 0xff) {
-                    code = 0x3f; // '?'
-                }
-
-                data[i++] = code;
+            for (let i = 0; i < utf8Text.length; i++) {
+                data[i] = utf8Text.charCodeAt(i);
             }
 
             RFB.messages.clientCutText(this._sock, data);
@@ -2389,8 +2374,9 @@ export default class RFB extends EventTargetMixin {
         if (this._sock.rQwait("ServerCutText content", Math.abs(length), 8)) { return false; }
 
         if (length >= 0) {
-            //Standard msg
-            const text = this._sock.rQshiftStr(length);
+            //Standard msg - use UTF-8 decoding to support Chinese characters
+            const rawText = this._sock.rQshiftStr(length);
+            const text = decodeUTF8(rawText, true);  // allowLatin1=true for fallback
             if (this._viewOnly) {
                 return true;
             }
