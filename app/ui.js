@@ -1311,6 +1311,11 @@ const UI = {
         // 通知父级 iframe 连接成功
         window.parent.postMessage({ type: 'vnc_connected', msg: 'Connected to server' }, '*');
 
+        // 连接成功后显示音频按钮（如果有 projectId）
+        if (UI.projectId) {
+            document.getElementById('noVNC_audio_button').classList.remove('noVNC_hidden');
+        }
+
         // 启动心跳保活定时器
         UI.startKeepalive();
 
@@ -1378,6 +1383,9 @@ const UI = {
 
         // 停止音频和输入法
         UI.stopAudioIME();
+
+        // 断开连接后隐藏音频按钮
+        document.getElementById('noVNC_audio_button').classList.add('noVNC_hidden');
 
         // 停止剪贴板同步（但保留开关状态，重连时会自动恢复）
         clipboardManager.setRFB(null);
@@ -2102,11 +2110,8 @@ const UI = {
 
         Log.Info('[Audio/IME] 参数初始化: projectId=' + UI.projectId + ', userId=' + UI.userId + ', baseUrl=' + UI.baseUrl + ', debugMode=' + UI.debugMode);
 
-        // 如果有 project_id，显示音频和输入法按钮
-        if (UI.projectId) {
-            document.getElementById('noVNC_audio_button').classList.remove('noVNC_hidden');
-            // document.getElementById('noVNC_ime_button').classList.remove('noVNC_hidden');
-        }
+        // 注意：音频按钮在连接成功后才显示，见 connectFinished()
+        // 这里只初始化参数，不显示按钮
     },
 
     /**
