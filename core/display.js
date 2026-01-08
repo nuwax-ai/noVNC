@@ -327,7 +327,7 @@ export default class Display {
 
         // Draw the appropriate SVG icon with smoothing enabled
         const icon = this.audioEnabled ? this._audioIconOn : this._audioIconOff;
-        if (icon && icon.complete) {
+        if (icon && icon.complete && icon.naturalWidth > 0) {
             ctx.save();
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
